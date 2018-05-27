@@ -1,6 +1,7 @@
 
 import numpy as np
 
+
 class Node(object):
 
     def __init__(self):
@@ -52,10 +53,12 @@ class Op(object):
         """
         raise NotImplementedError
 
+
 def Variable(name):
     node = placeholder_op()
     node.name = name
     return node
+
 
 class AddOp(Op):
 
@@ -74,6 +77,7 @@ class AddOp(Op):
 
     def bprop(self, input_vals, output_grad):
         return [output_grad, output_grad]
+
 
 class MulOp(Op):
 
@@ -94,6 +98,7 @@ class MulOp(Op):
         assert len(input_vals) == 2
         return [input_vals[1]*output_grad, input_vals[0]*output_grad]
 
+
 class PlaceholderOp(Op):
 
     def __call__(self, *args, **kwargs):
@@ -106,9 +111,116 @@ class PlaceholderOp(Op):
     def bprop(self, input_vals, output_grad):
         return Node
 
+
+class MatMulOp(Op):
+
+    def __call__(self, node1, node2):
+        node = Node()
+        node.inputs = [node1, node2]
+        node.op = self
+        node.name = "MatMulOp({},{})".format(node1.name, node2.name)
+        node1.outputs.append(node)
+        node2.outputs.append(node)
+        return node
+
+    def compute(self, input_vals):
+        assert len(input_vals) == 2
+        return np.matmul(input_vals[0], input_vals[1])
+
+    def bprop(self, input_vals, output_grad):
+        return [np.matmul(output_grad,np.transpose(input_vals[1])), np.matmul(np.transpose(input_vals[0]), output_grad)]
+
+
+class ExpOp(Op):
+
+    def __call__(self, node1):
+        node = Node()
+        node.inputs= [node1]
+        node.op = self
+        node.name = "exp({})".format(node1.name)
+        node1.outputs.append(node)
+        return node
+
+    def compute(self, input_vals):
+        assert len(input_vals) == 1
+        return np.exp(input_vals[0])
+
+    def bprop(self, input_vals, output_grad):
+        return [np.exp(input_vals[0]) * output_grad]
+
+
+class ReluOp(Op):
+
+    def __call__(self, node1):
+        node = Node()
+        node.inputs = [node1]
+        node.op = self
+        node.name = "relu({})".format(node1.name)
+        node1.ouputs.append(node)
+        return node
+
+    def compute(self, input_vals):
+        assert len(input_vals) == 1
+        return np.maximum(input_vals[0], 0)
+
+    def bprop(self, input_vals, output_grad):
+        return (np.sign(input_vals[0]) + 1)*0.5*output_grad
+
+
+def sigmoid_func(x):
+    temp = np.exp(x)
+    return temp / (temp + 1)
+
+
+class SigmoidOp(Op):
+
+    def __call__(self, node1):
+        node = Node()
+        node.inputs = [node1]
+        node.op = self
+        node.name = "Sigmoid({})" / format(node1.name)
+        node1.outputs.append(node)
+        return node
+
+    def compute(self, input_vals):
+        assert len(input_vals) == 1
+        return sigmoid_func(input_vals[0])
+
+    def bprop(self, input_vals, output_grad):
+        temp = sigmoid_func(input_vals[0])
+        return [output_grad * (1 - temp) * temp]
+
+
+class SigmoidCrossEntropyOp(Op):
+
+    def __call__(self, logit, label):
+        node = Node()
+        node.inputs = [logit, label]
+        node.op = self
+        node.name = "SigmoidCrossEntropy({},{})".format(logit.name, label.name)
+        logit.outputs.append(node)
+        label.outputs.append(node)
+        return node
+
+    def compute(self, input_vals):
+        assert len(input_vals) == 2
+        sig = sigmoid_func(input_vals[0])
+        return -1*(input_vals[1]*np.log(sig) + (1-input_vals[1])*np.log(1 - sig))
+
+    def bprop(self, input_vals, output_grad):
+        sig = sigmoid_func(input_vals[0])
+        return ((1 - input_vals[1])*sig - input_vals[1]*(1-sig))*output_grad
+
+
 add_op = AddOp()
 mul_op = MulOp()
 placeholder_op = PlaceholderOp()
+matmul_op = MatMulOp()
+exp_op = ExpOp()
+relu_op = ReluOp()
+sigmoid_op = SigmoidOp()
+sigmoid_cross_entropy_op = SigmoidCrossEntropyOp()
+
 
 class Executor(object):
 
@@ -131,12 +243,11 @@ class Executor(object):
             self.eval_grad(node)
         return [self.node_to_grad_map[n] for n in grad_node_list]
 
-
     def eval(self, node):
         if node in self.node_to_val_map:
             return
-        for input in node.inputs:
-            self.eval(input)
+        for input_node in node.inputs:
+            self.eval(input_node)
         input_vals = [self.node_to_val_map[input] for input in node.inputs]
         self.node_to_val_map[node] = node.op.compute(input_vals)
 
