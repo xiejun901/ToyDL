@@ -156,7 +156,7 @@ class ReluOp(Op):
         node.inputs = [node1]
         node.op = self
         node.name = "relu({})".format(node1.name)
-        node1.ouputs.append(node)
+        node1.outputs.append(node)
         return node
 
     def compute(self, input_vals):
@@ -164,7 +164,7 @@ class ReluOp(Op):
         return np.maximum(input_vals[0], 0)
 
     def bprop(self, input_vals, output_grad):
-        return (np.sign(input_vals[0]) + 1)*0.5*output_grad
+        return [(np.sign(input_vals[0]) + 1)*0.5*output_grad]
 
 
 def sigmoid_func(x):
@@ -178,7 +178,7 @@ class SigmoidOp(Op):
         node = Node()
         node.inputs = [node1]
         node.op = self
-        node.name = "Sigmoid({})" / format(node1.name)
+        node.name = "Sigmoid({})".format(node1.name)
         node1.outputs.append(node)
         return node
 
@@ -208,8 +208,7 @@ class SigmoidCrossEntropyOp(Op):
         return -1*(input_vals[1]*np.log(sig) + (1-input_vals[1])*np.log(1 - sig))
 
     def bprop(self, input_vals, output_grad):
-        sig = sigmoid_func(input_vals[0])
-        return ((1 - input_vals[1])*sig - input_vals[1]*(1-sig))*output_grad
+        return[(-input_vals[1] + sigmoid_func(input_vals[0])) * output_grad, -input_vals[0]*output_grad]
 
 
 add_op = AddOp()

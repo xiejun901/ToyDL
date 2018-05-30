@@ -58,4 +58,54 @@ def test_exp_var():
     np.testing.assert_almost_equal(x_grad, y_val)
 
 
+def test_relu_op():
+    x = bp.Variable("x")
+    y = bp.relu_op(x)
+
+    x_val = np.array([[1, -2, 3], [-1, -1 ,3]])
+    executor = bp.Executor()
+
+    y_val, = executor.forward([y], {x: x_val})
+    y_expect = np.array([[1, 0, 3], [0, 0, 3]])
+    np.testing.assert_array_equal(y_val, y_expect)
+
+    x_grad, = executor.backward(y, [x], {x:x_val})
+    x_grad_expect = np.array([[1, 0, 1], [0, 0, 1]])
+    np.testing.assert_array_equal(x_grad, x_grad_expect)
+
+def test_sigmoid_op():
+    x = bp.Variable("x")
+    y = bp.sigmoid_op(x)
+
+    x_val = np.array([1, 2])
+    excecutor = bp.Executor()
+    y_val, = excecutor.forward([y], feed_dict={x:x_val})
+    y_expect = np.array([1/(1+math.exp(-1.0)), 1/(1+math.exp(-2.0))])
+    np.testing.assert_almost_equal(y_val, y_expect)
+
+    x_grad, = excecutor.backward(y, [x], {x:x_val})
+    x_grad_expet = np.array([math.exp(-1.0)/(1+math.exp(-1.0))/(1+math.exp(-1.0)), math.exp(-2.0)/(1+math.exp(-2.0))/(1+math.exp(-2.0))])
+    np.testing.assert_almost_equal(x_grad, x_grad_expet)
+
+def sigmoid(x):
+    return 1.0/(1.0+np.exp(-x))
+
+def test_sigmoid_cross_entropy_op():
+    y = bp.Variable("y")
+    label = bp.Variable("label")
+    loss = bp.sigmoid_cross_entropy_op(y, label)
+    y_val = np.array([1.0, 2.0, 3.0])
+    label_val = np.array([4.0, 5.0, 6.0])
+    loss_expect = -y_val*label_val+np.log(1.0 + np.exp(y_val))
+    executor = bp.Executor()
+    loss_val, = executor.forward([loss], feed_dict={y:y_val, label: label_val})
+    np.testing.assert_almost_equal(loss_val, loss_expect)
+
+    y_grad, label_grad = executor.backward(loss, [y, label], feed_dict={y:y_val, label: label_val})
+
+    y_grad_expect = -label_val + sigmoid(y_val)
+    label_grad_expect = -y_val
+    np.testing.assert_almost_equal(y_grad, y_grad_expect)
+    np.testing.assert_almost_equal(label_grad,label_grad_expect)
+
 
