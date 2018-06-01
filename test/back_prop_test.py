@@ -108,4 +108,19 @@ def test_sigmoid_cross_entropy_op():
     np.testing.assert_almost_equal(y_grad, y_grad_expect)
     np.testing.assert_almost_equal(label_grad,label_grad_expect)
 
+def test_add_byconst_op():
+    x = bp.Variable("x")
+    y = 1+x
+
+    executor = bp.Executor()
+
+    x_val = np.array([10, 20])
+    y_val, = executor.forward([y], feed_dict={x: x_val})
+
+    np.testing.assert_array_equal(y_val, x_val+1)
+
+    x_grad, = executor.backward(y, [x], feed_dict={x: x_val})
+    np.testing.assert_array_equal(x_grad, np.array([1, 1]))
+
+
 

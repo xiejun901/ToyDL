@@ -9,12 +9,19 @@ class Node(object):
         self.outputs = []
         self.op = None
         self.name = ""
+        self.const_attr = None
 
     def __add__(self, other):
-        return add_op(self, other)
+        if isinstance(other, Node):
+            return add_op(self, other)
+        else:
+            return add_byconst_op(self, other)
 
     def __mul__(self, other):
-        return mul_op(self, other)
+        if isinstance(other, Node):
+            return mul_op(self, other)
+        else:
+            return mul_byconst_op(self, other)
 
     __radd__ = __add__
     __rmul__ = __mul__
@@ -36,7 +43,7 @@ class Op(object):
         node.op = self
         return node
 
-    def compute(self, input_vals):
+    def compute(self, node, input_vals):
         """
         前向计算，根据输入的值计算出经过此运算符输出的值
         :param input_vals: 输入值 numpy.array
@@ -44,7 +51,7 @@ class Op(object):
         """
         raise NotImplementedError
 
-    def bprop(self, input_vals, output_grad):
+    def bprop(self, node, input_vals, output_grad):
         """
         反向传播，根据输出的梯度和输入的值计算出输入的梯度
         :param input_vals:
@@ -59,6 +66,47 @@ def Variable(name):
     node.name = name
     return node
 
+class AddByConstOP(Op):
+
+    def __call__(self, node1, const_val):
+        node = Node()
+        node.inputs = [node1]
+        node1.outputs.append(node)
+        node.op = self
+        node.const_attr = const_val
+        node.name = "AddByConstOp({})".format(node1.name)
+        return node
+
+    def compute(self, node, input_vals):
+        assert len(input_vals) == 1
+        return input_vals[0] + node.const_attr
+
+    def bprop(self, node, input_vals, output_grad):
+        assert len(input_vals) == 1
+        return [output_grad]
+
+class MubByConstOp(Op):
+
+    def __call__(self, node1, const_val):
+        node = Node()
+        node.inputs = [node1]
+        node1.outputs.append(node)
+        node.op = self
+        node.const_attr = const_val
+        node.name = "MulByConstOp({})".format(node1.name)
+        return node
+
+    def compute(self, node, input_vals):
+        assert len(input_vals) == 1
+        return input_vals[0] * node.const_attr
+
+    def bprop(self, node, input_vals, output_grad):
+        assert len(input_vals) == 1
+        return [node.const_attr * output_grad]
+
+
+
+
 
 class AddOp(Op):
 
@@ -71,12 +119,14 @@ class AddOp(Op):
         node2.outputs.append(node)
         return node
 
-    def compute(self, input_vals):
+    def compute(self, node, input_vals):
         assert len(input_vals) == 2
         return input_vals[0] + input_vals[1]
 
-    def bprop(self, input_vals, output_grad):
+    def bprop(self, node ,input_vals, output_grad):
         return [output_grad, output_grad]
+
+
 
 
 class MulOp(Op):
@@ -90,11 +140,11 @@ class MulOp(Op):
         node2.outputs.append(node)
         return node
 
-    def compute(self, input_vals):
+    def compute(self, node, input_vals):
         assert len(input_vals) == 2
         return input_vals[0] * input_vals[1]
 
-    def bprop(self, input_vals, output_grad):
+    def bprop(self, node, input_vals, output_grad):
         assert len(input_vals) == 2
         return [input_vals[1]*output_grad, input_vals[0]*output_grad]
 
@@ -105,10 +155,10 @@ class PlaceholderOp(Op):
         node = Op.__call__(self)
         return node
 
-    def compute(self, input_vals):
+    def compute(self, node, input_vals):
         assert False, "placeholder values provided by feed_dict"
 
-    def bprop(self, input_vals, output_grad):
+    def bprop(self, node, input_vals, output_grad):
         return Node
 
 
@@ -123,11 +173,11 @@ class MatMulOp(Op):
         node2.outputs.append(node)
         return node
 
-    def compute(self, input_vals):
+    def compute(self, node, input_vals):
         assert len(input_vals) == 2
         return np.matmul(input_vals[0], input_vals[1])
 
-    def bprop(self, input_vals, output_grad):
+    def bprop(self, node, input_vals, output_grad):
         return [np.matmul(output_grad,np.transpose(input_vals[1])), np.matmul(np.transpose(input_vals[0]), output_grad)]
 
 
@@ -141,11 +191,11 @@ class ExpOp(Op):
         node1.outputs.append(node)
         return node
 
-    def compute(self, input_vals):
+    def compute(self, node, input_vals):
         assert len(input_vals) == 1
         return np.exp(input_vals[0])
 
-    def bprop(self, input_vals, output_grad):
+    def bprop(self, node, input_vals, output_grad):
         return [np.exp(input_vals[0]) * output_grad]
 
 
@@ -159,11 +209,11 @@ class ReluOp(Op):
         node1.outputs.append(node)
         return node
 
-    def compute(self, input_vals):
+    def compute(self, node, input_vals):
         assert len(input_vals) == 1
         return np.maximum(input_vals[0], 0)
 
-    def bprop(self, input_vals, output_grad):
+    def bprop(self, node, input_vals, output_grad):
         return [(np.sign(input_vals[0]) + 1)*0.5*output_grad]
 
 
@@ -182,11 +232,11 @@ class SigmoidOp(Op):
         node1.outputs.append(node)
         return node
 
-    def compute(self, input_vals):
+    def compute(self, node, input_vals):
         assert len(input_vals) == 1
         return sigmoid_func(input_vals[0])
 
-    def bprop(self, input_vals, output_grad):
+    def bprop(self, node, input_vals, output_grad):
         temp = sigmoid_func(input_vals[0])
         return [output_grad * (1 - temp) * temp]
 
@@ -202,12 +252,12 @@ class SigmoidCrossEntropyOp(Op):
         label.outputs.append(node)
         return node
 
-    def compute(self, input_vals):
+    def compute(self, node, input_vals):
         assert len(input_vals) == 2
         sig = sigmoid_func(input_vals[0])
         return -1*(input_vals[1]*np.log(sig) + (1-input_vals[1])*np.log(1 - sig))
 
-    def bprop(self, input_vals, output_grad):
+    def bprop(self, node, input_vals, output_grad):
         return[(-input_vals[1] + sigmoid_func(input_vals[0])) * output_grad, -input_vals[0]*output_grad]
 
 
@@ -219,6 +269,8 @@ exp_op = ExpOp()
 relu_op = ReluOp()
 sigmoid_op = SigmoidOp()
 sigmoid_cross_entropy_op = SigmoidCrossEntropyOp()
+add_byconst_op = AddByConstOP()
+mul_byconst_op = MubByConstOp()
 
 
 class Executor(object):
@@ -248,7 +300,7 @@ class Executor(object):
         for input_node in node.inputs:
             self.eval(input_node)
         input_vals = [self.node_to_val_map[input] for input in node.inputs]
-        self.node_to_val_map[node] = node.op.compute(input_vals)
+        self.node_to_val_map[node] = node.op.compute(node, input_vals)
 
     def eval_grad(self, node):
         from functools import reduce
@@ -265,7 +317,7 @@ class Executor(object):
             self.eval_grad(output)
             input_vals = [self.node_to_val_map[n] for n in output.inputs]
             output_grad = self.node_to_grad_map[output]
-            input_grads = output.op.bprop(input_vals, output_grad)
+            input_grads = output.op.bprop(output, input_vals, output_grad)
             for i in range(len(output.inputs)):
                 if output.inputs[i] == node:
                     temp.append(input_grads[i])
