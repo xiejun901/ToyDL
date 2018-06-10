@@ -10,4 +10,6 @@ test/back_prop_test.py 反向传播模块的一些简单的test-case, 可以通�
 nosetests test/back_prop_test.py
 ```
 
+demo/linear_regression 简单的使用反向传播的线性回归的例子
+demo/binary_classification 手动求导使用numpy的逻辑回归和使用反向传播的逻辑回归，mlp做二分类的例子
 .... to be continued
