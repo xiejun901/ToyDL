@@ -255,7 +255,8 @@ class SigmoidCrossEntropyOp(Op):
     def compute(self, node, input_vals):
         assert len(input_vals) == 2
         sig = sigmoid_func(input_vals[0])
-        return -1*(input_vals[1]*np.log(sig) + (1-input_vals[1])*np.log(1 - sig))
+        return np.maximum(input_vals[0], 0) - input_vals[0]*input_vals[1] + np.log1p(np.exp(input_vals[0]))
+        # return -1*(input_vals[1]*np.log1p(sig) + (1-input_vals[1])*np.log1p(1 - sig))
 
     def bprop(self, node, input_vals, output_grad):
         return[(-input_vals[1] + sigmoid_func(input_vals[0])) * output_grad, -input_vals[0]*output_grad]
