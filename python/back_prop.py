@@ -159,7 +159,7 @@ class PlaceholderOp(Op):
         assert False, "placeholder values provided by feed_dict"
 
     def bprop(self, node, input_vals, output_grad):
-        return Node
+        assert False, "can not do back propagation"
 
 
 class MatMulOp(Op):
