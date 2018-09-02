@@ -162,6 +162,17 @@ class Executor(object):
                 node_to_value[node] = value
         return list(map(lambda x: node_to_value[x], self.eval_node_list))
 
+def gradients(output_node, node_list):
+    """
+    根据输出节点生成对node_list中节点的梯度
+    :param output_node:
+    :param node_list:
+    :type output_node: Node
+    :type node_list: list[Node]
+    :return:
+    """
+
+    pass
 
 def topology_sort(node_list):
     """
