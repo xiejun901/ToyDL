@@ -60,6 +60,7 @@ class Op(object):
         """
         raise NotImplementedError
 
+
 class PlaceholderOp(Op):
 
     def __call__(self):
@@ -152,8 +153,39 @@ class Executor(object):
         self.eval_node_list = eval_node_list
 
     def run(self, feed_dict):
-        pass
+        node_to_value = dict(feed_dict)
+        node_list = topology_sort(self.eval_node_list)
+        for node in node_list:
+            if node not in node_to_value:
+                input_vals = list(map(lambda x: node_to_value[x], node.inputs))
+                value = node.op.compute(node, input_vals)
+                node_to_value[node] = value
+        return list(map(lambda x: node_to_value[x], self.eval_node_list))
 
+
+def topology_sort(node_list):
+    """
+    找到node_list 中所有node的依赖node
+    :param node_list:
+    :type node_list list[Node]
+    :return:
+    """
+    result = []
+    visited = set([])
+
+    def dfs(node):
+
+        for n in node.inputs:
+            if n not in visited:
+                dfs(n)
+            else:
+                pass
+        result.append(node)
+        visited.add(node)
+
+    for node in node_list:
+        dfs(node)
+    return result
 
 
 add_op = AddOp()
