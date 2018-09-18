@@ -211,15 +211,35 @@ def gradients(output_node, node_list):
     :return:
     """
 
-    """
-    在计算过程中，同一个节点可能有多个后续节点，需要把多个后续节点对其的梯度相加, 由于按节点依赖情况进行了拓扑排序，所以在计算某个节点
-    的梯度的时候，其后续节点必然所有的后续路径已经计算完成，在这个地方可以将后续节点的多条路径的梯度相加
-    """
     node_to_output_grads_list = {}
     node_to_output_grads_list[output_node] = [ones_like_op(output_node)]
     reverse_topo_order = reversed(topology_sort([output_node]))
     node_to_output_grad = {}
+    for node in reverse_topo_order:
+        """
+        对于每一个节点，由于按拓扑排序逆许进行计算，那么其所有后续路径已经计算完毕，在这个地方可以计算输出相对于节点的梯度
+        同时，更新前依赖节点本条路径的梯度
+        """
+        node_to_output_grad[node] = sum_node_list(node_to_output_grads_list[node])
+        input_grad = node.op.gradient(node, node_to_output_grad[node])
+        for i in range(len(input_grad)):
+            n = node.inputs[i]
+            g = input_grad[i]
+            if n not in node_to_output_grads_list:
+                node_to_output_grads_list[n] = [g]
+            else:
+                node_to_output_grads_list[n].append(g)
+        return [node_to_output_grad[n] for n in node_list]
 
+
+def sum_node_list(node_list):
+    """
+    对节点进行求和
+    :param node_list:
+    :return:
+    """
+    from functools import reduce
+    return reduce(lambda n1, n2: n1 + n2, node_list)
 
 
 def topology_sort(node_list):
