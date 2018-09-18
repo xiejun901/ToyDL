@@ -61,6 +61,44 @@ class Op(object):
         raise NotImplementedError
 
 
+class OnesLikeOp(Op):
+    """
+    产生与输入节点shape相同的全1元素的张量
+    """
+
+    def __call__(self, node):
+        new_node = Op.__call__(node)
+        new_node.inputs = [node]
+        new_node.name = f"OnesLike(${node.name})"
+        return new_node
+
+    def compute(self, node, input_vals):
+        assert (isinstance(input_vals[0], np.ndarray))
+        return np.ones(input_vals[0].shape)
+
+    def gradient(self, node, output_grad):
+        return [zeros_like_op(output_grad[0])]
+
+
+class ZerosLikeOp(Op):
+    """
+    产生与输入节点shape相同的全0元素的张量
+    """
+
+    def __call__(self, node):
+        new_node = Op.__call__(node)
+        new_node.inputs = [node]
+        new_node.name = f"ZerosLike(${node.name})"
+        return new_node
+
+    def compute(self, node, input_vals):
+        assert (isinstance(input_vals[0], np.ndarray))
+        return np.zeros(input_vals[0].shape)
+
+    def gradient(self, node, output_grad):
+        return zeros_like_op(node)
+
+
 class PlaceholderOp(Op):
 
     def __call__(self):
@@ -162,6 +200,7 @@ class Executor(object):
                 node_to_value[node] = value
         return list(map(lambda x: node_to_value[x], self.eval_node_list))
 
+
 def gradients(output_node, node_list):
     """
     根据输出节点生成对node_list中节点的梯度
@@ -172,7 +211,16 @@ def gradients(output_node, node_list):
     :return:
     """
 
-    pass
+    """
+    在计算过程中，同一个节点可能有多个后续节点，需要把多个后续节点对其的梯度相加, 由于按节点依赖情况进行了拓扑排序，所以在计算某个节点
+    的梯度的时候，其后续节点必然所有的后续路径已经计算完成，在这个地方可以将后续节点的多条路径的梯度相加
+    """
+    node_to_output_grads_list = {}
+    node_to_output_grads_list[output_node] = [ones_like_op(output_node)]
+    reverse_topo_order = reversed(topology_sort([output_node]))
+    node_to_output_grad = {}
+
+
 
 def topology_sort(node_list):
     """
@@ -204,3 +252,5 @@ add_byconst_op = AddByConstOp()
 mul_op = MulOp()
 mul_byconst_op = MulByConstOp()
 placeholder_op = PlaceholderOp()
+ones_like_op = OnesLikeOp()
+zeros_like_op = ZerosLikeOp()
