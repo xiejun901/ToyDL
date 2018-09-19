@@ -67,7 +67,7 @@ class OnesLikeOp(Op):
     """
 
     def __call__(self, node):
-        new_node = Op.__call__(node)
+        new_node = Op.__call__(self)
         new_node.inputs = [node]
         new_node.name = f"OnesLike(${node.name})"
         return new_node
@@ -86,7 +86,7 @@ class ZerosLikeOp(Op):
     """
 
     def __call__(self, node):
-        new_node = Op.__call__(node)
+        new_node = Op.__call__(self)
         new_node.inputs = [node]
         new_node.name = f"ZerosLike(${node.name})"
         return new_node
@@ -108,7 +108,7 @@ class PlaceholderOp(Op):
         assert False, "placeholder values provided by feed_dict"
 
     def gradient(self, node, output_grad):
-        assert False, "never calculate gradient on placeholder"
+        return None
 
 
 class AddByConstOp(Op):
@@ -166,6 +166,7 @@ class MulByConstOp(Op):
         new_node = Op.__call__(self)
         new_node.const_attr = const_val
         new_node.name = f"({node}*{const_val})"
+        new_node.inputs = [node]
         return new_node
 
     def compute(self, node, input_vals):
@@ -222,14 +223,14 @@ def gradients(output_node, node_list):
         """
         node_to_output_grad[node] = sum_node_list(node_to_output_grads_list[node])
         input_grad = node.op.gradient(node, node_to_output_grad[node])
-        for i in range(len(input_grad)):
+        for i in range(len(node.inputs)):
             n = node.inputs[i]
             g = input_grad[i]
             if n not in node_to_output_grads_list:
                 node_to_output_grads_list[n] = [g]
             else:
                 node_to_output_grads_list[n].append(g)
-        return [node_to_output_grad[n] for n in node_list]
+    return [node_to_output_grad[n] for n in node_list]
 
 
 def sum_node_list(node_list):
