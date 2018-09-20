@@ -77,7 +77,7 @@ class OnesLikeOp(Op):
         return np.ones(input_vals[0].shape)
 
     def gradient(self, node, output_grad):
-        return [zeros_like_op(output_grad[0])]
+        return [zeros_like_op(node.inputs[0])]
 
 
 class ZerosLikeOp(Op):
@@ -96,7 +96,7 @@ class ZerosLikeOp(Op):
         return np.zeros(input_vals[0].shape)
 
     def gradient(self, node, output_grad):
-        return zeros_like_op(node)
+        return [zeros_like_op(node.inputs[0])]
 
 
 class PlaceholderOp(Op):
