@@ -157,7 +157,7 @@ class MulOp(Op):
         return input_vals[0] * input_vals[1]
 
     def gradient(self, node, output_grad):
-        return [node.inputs[0] * output_grad, output_grad * node.inputs[1]]
+        return [node.inputs[1] * output_grad, output_grad * node.inputs[0]]
 
 
 class MulByConstOp(Op):
