@@ -177,6 +177,39 @@ class MulByConstOp(Op):
         return [output_grad * node.const_attr]
 
 
+class MatMulOp(Op):
+
+    def __call__(self, node_A, node_B, trans_A=False, trans_B=False):
+        """
+        这个地方将转置放在参数里就不用专门实现多加一个转置的运算符了
+        :param node_A:
+        :param node_B:
+        :param trans_A:
+        :param trans_B:
+        :return:
+        """
+        new_node = Op.__call__(self)
+        new_node.name = f"MatMul(${node_A.name}, ${node_B.name}, ${trans_A}, ${trans_B})"
+        new_node.inputs = [node_A, node_B]
+        new_node.matmul_attrs_trans_A = trans_A
+        new_node.matmul_attrs_trans_B = trans_B
+        return new_node
+
+    def compute(self, node, input_vals):
+        assert len(input_vals) == 2
+        if (node.matmul_attrs_trans_A is False) and (node.matmul_attrs_trans_B is False):
+            return np.matmul(input_vals[0], input_vals[1])
+        if (node.matmul_attrs_trans_A is True) and (node.matmul_attrs_trans_B is False):
+            return np.matmul(np.transpose(input_vals[0]), input_vals[1])
+        if (node.matmul_attrs_trans_A is False) and (node.matmul_attrs_trans_B is True):
+            return np.matmul(input_vals[0], np.transpose(input_vals[1]))
+        return np.matmul(np.transpose(input_vals[0]), np.transpose(input_vals[1]))
+
+    def gradient(self, node, output_grad):
+        return [matmul_op(output_grad, node.inputs[1], False, True),
+                matmul_op(node.inputs[0], output_grad, True, False)]
+
+
 def Variable(name):
     node = placeholder_op()
     node.name = name
@@ -275,3 +308,4 @@ mul_byconst_op = MulByConstOp()
 placeholder_op = PlaceholderOp()
 ones_like_op = OnesLikeOp()
 zeros_like_op = ZerosLikeOp()
+matmul_op = MatMulOp()
